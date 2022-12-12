@@ -1,0 +1,143 @@
+---
+output: github_document
+---
+
+<!-- README.md is generated from README.Rmd. Please edit that file -->
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+# mitoXpress
+
+<!-- badges: start -->
+<!-- badges: end -->
+
+This is an import and analysis script written for TRF mitoXpress experiments ran on a SpectraMax. Please have a good look at the data file and key file. 
+
+## Install
+
+For the script to run the following libraries are needed:
+
+```{r message=FALSE, warning=FALSE}
+library(tidyverse)
+library(broom)
+library(here)
+library(janitor)
+library(lubridate)
+library(readxl)
+
+```
+
+Also the renv lockfile in this repository is up to date with all packages that are used in this project.
+
+This repository can be cloned to your own github page or the files can be copied to your own Rstudio project.
+
+## Data file
+
+A data file starts it data column names on row three. The script skips the first two lines. The file contains a `Time` column and a `Temperature` column followed by one column for each `well`. The script removes rows that contain `NaN` and also removes the closing rows of the documents.
+
+The dat file is a tab-delimited text file. Apparently our Spectramax outputs txt files in UTF16 unicode format, which is somewhat outdated, since practically all unicode text files are encoded as UTF8. This is likely the reason why Excel has difficulty reading the exported files from the spectramax.
+
+```{r load data, message=FALSE, warning=FALSE, include=FALSE}
+
+filepath_mXp <- here::here("inst", "extdata", "evelien_test_expt6.txt")
+
+mito_express_data <- filepath_mXp %>%
+  readr::read_tsv(locale = readr::locale(encoding = "UTF-16LE"),
+                  col_names = TRUE,
+                  show_col_types = FALSE,
+                  skip = 2) %>%
+  filter(Time != "NaN",
+         Time != "~End") %>%
+  filter(!str_detect(Time, "Original")) %>%
+  janitor::clean_names(case = "none") %>%
+  rename(time = Time,
+         temp = Temperature_C) %>%
+  pivot_longer(c(-time, -temp),
+               names_to = "well",
+               values_to = "fluorescence") %>%
+  mutate(well = well %>%
+           map_chr(~paste0(
+             str_extract(.x, "\\D"),
+             str_extract_all(.x, "\\d") %>%
+               pluck(1) %>%
+               str_flatten() %>%
+               str_pad(width = 2, pad = "0")))) %>%
+  mutate(time = lubridate::hms(time),
+         time_sec = lubridate::period_to_seconds(time)) %>%
+  select(time, time_sec, temp, well, fluorescence) %>%
+  drop_na()
+
+```
+
+```{r}
+mito_express_data
+```
+
+
+## Key file
+
+The `key file` is needed for the user to manually add meta info to the analysis. The most important is the choice for time frame for `slope` calculation. The time frame is given in seconds (`start` and `end`). Also `sample_type` and `group` information should be added. 
+
+The key file is an excel file (.xlsx file).
+
+The key file in R looks like:
+
+```{r read key file, message=FALSE, warning=FALSE, include=FALSE}
+
+filepath_keyfile <- here::here("inst", "extdata", "key_file_template.xlsx")
+
+key_file <- readxl::read_excel(filepath_keyfile)
+```
+
+```{r}
+key_file
+```
+
+
+## Plots
+
+Two examples of very basic plots are also in the script
+
+This is the output for the example data:
+
+```{r}
+df <- readRDS(here::here("data", "test_data.rds"))
+
+df %>%
+  ggplot(aes(x = time_sec, y = fluorescence, group = well, color = well))+
+  geom_point()+
+  labs(y = "fluorescence (AU)",
+       x = "time (sec)")+
+  theme_bw()
+
+```
+
+```{r}
+slopes <- readRDS(here::here("data", "test_slopes.rds"))
+
+slopes %>%
+  ggplot(aes(x = well, y = slope))+
+  geom_point()+
+  labs(y = "slope (dAU/dt)",
+       x = "well name")+
+  theme_bw()
+```
+
+
+## Export
+
+The imported data and the calculated slopes can be exported to excel (as .csv file) using the commands described in the script. Please notice that the files are writtenn to a folder named `output`.
+
+## Points of attention
+
+*   Please pay attention to the location of the data files. I have the data files in the `inst\extdata` folder and files are written to `output`.
+
+*   The exported files are named according to the input file name.
+
+*   One function `get_range_with_key` is needed to calculate the slopes. This function needs to be in the global environment, meaning that it should be run first before the slopes pipe can run.
+
