@@ -37,9 +37,13 @@ be copied to your own Rstudio project.
 
 The data and key files are living in the folder `inst\extdata`.
 
-Experimental file: \* evelien_test_expt6.txt
+Experimental file:
 
-Key file: \* key_file_template.xlsx
+- evelien_test_expt6.txt
+
+Key file:
+
+- key_file_template.xlsx
 
 ## Data file
 
@@ -54,6 +58,14 @@ spits out txt files in UTF16 unicode format, which is somewhat outdated,
 since practically all unicode text files now are encoded as UTF8. This
 is likely the reason why Excel has difficulty reading the exported files
 from the spectramax properly.
+
+The tab-delimited text column names are also renamed. Please notice that
+well names need to be three characters, so `A1` becomes `A01`. This
+conversion is also incorporated in the script since the plate reader
+outputs two and three digit well names. This is annoying when sorting
+data and plotting data.
+
+The imported and processed data looks like this in R:
 
 ``` r
 mito_express_data
