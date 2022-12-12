@@ -6,6 +6,10 @@
 <!-- badges: start -->
 <!-- badges: end -->
 
+Vincent de Boer, Dec 12th, 2022
+
+🎅 🔬 🤖 🥼
+
 This is an import and analysis script written for TRF mitoXpress
 experiments ran on a SpectraMax. Please have a good look at the data
 file and key file.
