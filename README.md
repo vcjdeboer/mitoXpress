@@ -33,19 +33,27 @@ packages that are used in this project.
 This repository can be cloned to your own github page or the files can
 be copied to your own Rstudio project.
 
+## Test data
+
+The data and key files are living in the folder `inst\extdata`.
+
+Experimental file: \* evelien_test_expt6.txt
+
+Key file: \* key_file_template.xlsx
+
 ## Data file
 
-A data file starts it data column names on row three. The script skips
+A data file starts its data column names on row three. The script skips
 the first two lines. The file contains a `Time` column and a
 `Temperature` column followed by one column for each `well`. The script
 removes rows that contain `NaN` and also removes the closing rows of the
 documents.
 
-The dat file is a tab-delimited text file. Apparently our Spectramax
-outputs txt files in UTF16 unicode format, which is somewhat outdated,
-since practically all unicode text files are encoded as UTF8. This is
-likely the reason why Excel has difficulty reading the exported files
-from the spectramax.
+The data file is a tab-delimited text file. Apparently our Spectramax
+spits out txt files in UTF16 unicode format, which is somewhat outdated,
+since practically all unicode text files now are encoded as UTF8. This
+is likely the reason why Excel has difficulty reading the exported files
+from the spectramax properly.
 
 ``` r
 mito_express_data
@@ -125,11 +133,30 @@ slopes %>%
 
 ![](README_files/figure-gfm/unnamed-chunk-6-1.png)<!-- -->
 
+And an example of somewhat more complex ggplot, with the time frame used
+for slope calc also plotted.
+
+![](README_files/figure-gfm/unnamed-chunk-7-1.png)<!-- -->
+
 ## Export
 
 The imported data and the calculated slopes can be exported to excel (as
 .csv file) using the commands described in the script. Please notice
-that the files are writtenn to a folder named `output`.
+that the files are written to a folder named `output`.
+
+``` r
+df_wider <- df %>%
+  pivot_wider(names_from = well, values_from = fluorescence) %>%
+  select(-time)
+
+readr::write_csv(df_wider,
+                 here::here("output",
+                            paste0(str_sub(basename(filepath_mXp), end=-5), ".csv")))
+
+readr::write_csv(slopes,
+                 here::here("output",
+                            paste0("slopes", str_sub(basename(filepath_mXp), end=-5), ".csv")))
+```
 
 ## Points of attention
 
