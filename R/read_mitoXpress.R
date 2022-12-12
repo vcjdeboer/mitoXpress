@@ -22,6 +22,17 @@ key_file <- readxl::read_excel(filepath_keyfile)
 # import data file and preprocess -----------------------------------------
 
 #import is specifically for TRF experiment on Spectramax
+#
+# you can ignore the warning:
+#
+# • `` -> `...99`
+# Warning message:
+#   One or more parsing issues, call `problems()` on your data frame for details,
+# e.g.:
+#   dat <- vroom(...)
+# problems(dat)
+#
+# other warnings cannot be ignored
 
 df <- filepath_mXp %>%
   readr::read_tsv(locale = readr::locale(encoding = "UTF-16LE"),
@@ -56,7 +67,7 @@ df_wider <- df %>%
   select(-time)
 
 readr::write_csv(df_wider,
-                 here::here("inst", "extdata",
+                 here::here("output",
                             paste0(str_sub(basename(filepath_mXp), end=-5), ".csv")))
 
 # plot the data for all wells ---------------------------------------------
@@ -72,30 +83,7 @@ df %>%
 # a = 24.9
 # b = intercept = 22857.7
 
-# manually set the time windows for each well
-window1 <- c(0:120)
-window2 <- c(300:780)
-
-windows <- tibble(
-  well = df$well %>% unique(),
-  window = c("window1", "window1", "window1", "window1",
-             "window2", "window2", "window2", "window2",
-             "window2", "window2"))
-
-# range filter functions
-get_range_manual <- function(well_df, my_well, windows){
-
-  my_window <- windows %>%
-    filter(well == my_well) %>%
-    pull(window)
-
-  well_df <- well_df %>%
-    filter(time_sec %in% get(my_window))
-
-  return(well_df)
-
-}
-
+#function needed for window selection
 get_range_with_key <- function(well_df, my_well, my_key){
 
   my_range <- my_key %>%
@@ -110,22 +98,8 @@ get_range_with_key <- function(well_df, my_well, my_key){
 
 }
 
-
-# get slope with manual windows
-df %>%
-  group_by(well) %>%
-  nest() %>%
-  mutate(model = map2(.x = data,
-                      .y = well,
-                      ~.x %>% get_range(.y, windows) %>%
-                       lm(formula = fluorescence ~ time_sec, data = .)),
-         summaries = map(model, broom::glance),
-         model_coef = map(model, broom::tidy)) %>%
-  mutate(slope = map_dbl(model_coef, ~.x %>% pluck("estimate", 2))) %>%
-  select(well, slope)
-
 #get slope with key file
-df %>%
+slopes <- df %>%
   group_by(well) %>%
   nest() %>%
   mutate(model = map2(.x = data,
@@ -137,6 +111,20 @@ df %>%
   mutate(slope = map_dbl(model_coef, ~.x %>% pluck("estimate", 2))) %>%
   select(well, slope)
 
+
+# plot slopes -------------------------------------------------------------
+
+slopes %>%
+  ggplot(aes(x = well, y = slope))+
+  geom_point()
+
+
+# export slopes -----------------------------------------------------------
+
+# filename is set automatically using the initial input filename
+readr::write_csv(slopes,
+                 here::here("output",
+                            paste0("slopes", str_sub(basename(filepath_mXp), end=-5), ".csv")))
 
 
 
