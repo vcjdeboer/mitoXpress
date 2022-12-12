@@ -74,7 +74,10 @@ readr::write_csv(df_wider,
 
 df %>%
   ggplot(aes(x = time_sec, y = fluorescence, group = well, color = well))+
-  geom_point()
+  geom_point()+
+  labs(y = "fluorescence (AU)",
+       x = "time (sec)")+
+  theme_bw()
 
 # calculate the slopes ----------------------------------------------------
 
@@ -116,7 +119,10 @@ slopes <- df %>%
 
 slopes %>%
   ggplot(aes(x = well, y = slope))+
-  geom_point()
+  geom_point()+
+  labs(y = "slope (dAU/dt)",
+       x = "well name")+
+  theme_bw()
 
 
 # export slopes -----------------------------------------------------------
@@ -125,6 +131,39 @@ slopes %>%
 readr::write_csv(slopes,
                  here::here("output",
                             paste0("slopes", str_sub(basename(filepath_mXp), end=-5), ".csv")))
+
+
+
+# plot slopes in raw data -------------------------------------------------
+
+df %>%
+  ggplot( mapping = aes(x = time_sec, y = fluorescence,
+                       group = well, color = well))+
+  geom_point(alpha = 0.9) +
+  geom_smooth(data = . %>%
+                filter(well %in% c("E08", "E09", "F08", "F09", "G08", "G09")) %>%
+                filter(time_sec >= 300,
+                       time_sec <= 780),
+              method = lm,
+              se = FALSE,
+              formula = y ~ x,
+              color = "grey50",
+              size = 1.2)+
+  geom_smooth(data = . %>%
+                filter(well %in% c("C08", "C09", "D08", "D09")) %>%
+                filter(time_sec >= 0,
+                       time_sec <= 120),
+              method = lm,
+              se = FALSE,
+              formula = y ~ x,
+              color = "grey50",
+              size = 1.2)+
+  scale_color_manual(values =c(colorRampPalette(RColorBrewer::brewer.pal(8, "Set2"))(10)))+
+  labs(y = "fluorescence (AU)",
+       x = "time (sec)")+
+  theme_bw()+
+  theme(axis.text = element_text(size = 16),
+        axis.title = element_text(size = 16))
 
 
 
