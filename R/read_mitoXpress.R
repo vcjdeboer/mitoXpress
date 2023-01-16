@@ -4,6 +4,7 @@ library(here)
 library(janitor)
 library(lubridate)
 library(readxl)
+library(assertthat)
 
 # set the data file -------------------------------------------------------
 
@@ -102,7 +103,9 @@ get_range_with_key <- function(well_df, my_well, my_key){
 }
 
 #get slope with key file
-slopes <- df %>%
+slopes <- df %T>% #please note the Tee pipe here "%T>%" works for the assertion here (from https://github.com/hadley/assertthat/issues/41)
+  assert_that(identical(well %>% unique(),
+                        key_file$well %>%  unique()), env = .) %>%
   group_by(well) %>%
   nest() %>%
   mutate(model = map2(.x = data,
