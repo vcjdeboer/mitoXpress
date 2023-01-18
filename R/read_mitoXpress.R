@@ -67,9 +67,9 @@ df_wider <- df %>%
   pivot_wider(names_from = well, values_from = fluorescence) %>%
   select(-time)
 
-readr::write_csv(df_wider,
+readr::write_txt(df_wider,
                  here::here("output",
-                            paste0(str_sub(basename(filepath_mXp), end=-5), ".csv")))
+                            paste0(str_sub(basename(filepath_mXp), end=-5), ".txt")))
 
 # plot the data for all wells ---------------------------------------------
 
@@ -131,9 +131,9 @@ slopes %>%
 # export slopes -----------------------------------------------------------
 
 # filename is set automatically using the initial input filename
-readr::write_csv(slopes,
+readr::write_delim(slopes,
                  here::here("output",
-                            paste0("slopes", str_sub(basename(filepath_mXp), end=-5), ".csv")))
+                            paste0("slopes", str_sub(basename(filepath_mXp), end=-5), ".txt")))
 
 
 
