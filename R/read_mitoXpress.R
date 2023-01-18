@@ -74,11 +74,13 @@ readr::write_txt(df_wider,
 # plot the data for all wells ---------------------------------------------
 
 df %>%
-  ggplot(aes(x = time_sec, y = fluorescence, group = well, color = well))+
+  left_join(key_file, by = c("well")) %>%
+  ggplot(aes(x = time_sec, y = fluorescence, group = group, color = group))+
   geom_point()+
   labs(y = "fluorescence (AU)",
        x = "time (sec)")+
-  theme_bw()
+  theme_bw()+
+  facet_wrap(~group)
 
 # calculate the slopes ----------------------------------------------------
 
