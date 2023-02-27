@@ -67,7 +67,7 @@ df_wider <- df %>%
   pivot_wider(names_from = well, values_from = fluorescence) %>%
   select(-time)
 
-readr::write_txt(df_wider,
+readr::write_delim(df_wider,
                  here::here("output",
                             paste0(str_sub(basename(filepath_mXp), end=-5), ".txt")))
 
