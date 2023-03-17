@@ -132,6 +132,8 @@ slopes %>%
 
 # export slopes -----------------------------------------------------------
 
+# issue output folder not on my comp
+
 # filename is set automatically using the initial input filename
 readr::write_delim(slopes,
                  here::here("output",
