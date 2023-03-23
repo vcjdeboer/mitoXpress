@@ -218,7 +218,7 @@ filepath_tutorial_image <- here::here("mitoXpress_data_analysis_long.png")
 ```
 
 
-`r sprintf("![filepath_tutorial_image](%s)", filepath_tutorial_image)`
+`r sprintf("![filepath_tutorial_image](%s)", mitoXpress_data_analysis_long.png)`
 
 `r filepath_tutorial_image`
 
