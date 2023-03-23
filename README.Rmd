@@ -210,16 +210,8 @@ The data processing goed through several steps. It uses the `smooth.Pspline` fro
 
 To steps that are taken in the prcosssing are presented here:
 
-```{r include=FALSE}
-#location of digital plate image
-filepath_tutorial_image <- here::here("mitoXpress_data_analysis_long.png")
 
+`r sprintf("![tutorial_image](%s)", mitoXpress_data_analysis_long.png)`
 
-```
-
-
-`r sprintf("![filepath_tutorial_image](%s)", mitoXpress_data_analysis_long.png)`
-
-`r filepath_tutorial_image`
 
 
