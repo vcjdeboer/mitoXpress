@@ -6,9 +6,9 @@
 <!-- badges: start -->
 <!-- badges: end -->
 
-Vincent de Boer, Dec 12th, 2022
+Vincent de Boer, March 23rd, 2023
 
-🎅 🔬 🤖 🥼
+🔬 🤖 🥼
 
 This is an import and analysis script written for TRF mitoXpress
 experiments ran on a SpectraMax. Please have a good look at the data
@@ -25,6 +25,11 @@ library(here)
 library(janitor)
 library(lubridate)
 library(readxl)
+library(bayestestR)
+library(pspline)
+library(colorspace)
+library(ggrepel)
+library(ggdist)
 ```
 
 Also the renv lockfile in this repository is up to date with all
@@ -33,19 +38,11 @@ packages that are used in this project.
 This repository can be cloned to your own github page or the files can
 be copied to your own Rstudio project.
 
-## Test data
+## Input
 
 The data and key files are living in the folder `inst\extdata`.
 
-Experimental file:
-
-- evelien_test_expt6.txt
-
-Key file:
-
-- key_file_template.xlsx
-
-## Data file
+### Data file
 
 A data file starts its data column names on row three. The script skips
 the first two lines. The file contains a `Time` column and a
@@ -85,7 +82,7 @@ mito_express_data
 #> # … with 600 more rows
 ```
 
-## Key file
+### Key file
 
 The `key file` is needed for the user to manually add meta info to the
 analysis. The most important is the choice for time frame for `slope`
@@ -115,69 +112,95 @@ key_file
 
 ## Plots
 
-Two examples of very basic plots are also in the script
+### raw data with smoothed spline
 
-This is the output for the example data:
+The first plot is the raw data traces with the smoothed spline.
 
 ``` r
-df <- readRDS(here::here("data", "test_data.rds"))
+transformed <- readRDS(here::here("data", "transformed_4dpf_example.rds"))
 
-df %>%
-  ggplot(aes(x = time_sec, y = fluorescence, group = well, color = well))+
+transformed %>%
+  ggplot(aes(x=time_sec, y = (fluorescence), color = well, group = group))+
   geom_point()+
+  geom_line(aes(y = (zero_order), color = well, group = well),
+            alpha = 0.5,
+            linewidth = 2)+
+  ggrepel::geom_label_repel(data = . %>% filter(time_sec == max(time_sec)),
+                            aes(label = well),
+                            show.legend = FALSE)+
+  colorspace::scale_colour_discrete_divergingx(palette = "Geyser", rev = FALSE)+
   labs(y = "fluorescence (AU)",
-       x = "time (sec)")+
-  theme_bw()
+       x = "time (sec)") +
+  facet_wrap(~group, scales = "fixed")+
+  theme_bw(base_size = 18)
 ```
 
 ![](README_files/figure-gfm/unnamed-chunk-5-1.png)<!-- -->
 
-``` r
-slopes <- readRDS(here::here("data", "test_slopes.rds"))
+### first order derivative of the smoothed spline
 
-slopes %>%
-  ggplot(aes(x = well, y = slope))+
+The second plot is the first derivative of the smoothed spline, it
+demosntrated were the maximum slope is.
+
+``` r
+transformed %>%
+  ggplot(aes(x=time_sec, y = first_order, color = well, group = group))+
   geom_point()+
-  labs(y = "slope (dAU/dt)",
-       x = "well name")+
-  theme_bw()
+  ggrepel::geom_label_repel(data = . %>% filter(time_sec == max(time_sec)),
+                            aes(label = well),
+                            show.legend = FALSE)+
+  colorspace::scale_colour_discrete_divergingx(palette = "Geyser", rev = FALSE)+
+  labs(y = "change in fluorescence (1st der.)",
+       x = "time (sec)") +
+  facet_wrap(~group, scales = "fixed")+
+  theme_bw(base_size = 18)
 ```
 
 ![](README_files/figure-gfm/unnamed-chunk-6-1.png)<!-- -->
 
-And an example of somewhat more complex ggplot, with the time frame used
-for slope calc also plotted.
+### log transformed data
+
+This is just a plot of the log transform of the smoothed spline.
 
 ![](README_files/figure-gfm/unnamed-chunk-7-1.png)<!-- -->
 
-## Export
+### slopes
 
-The imported data and the calculated slopes can be exported to excel (as
-.csv file) using the commands described in the script. Please notice
-that the files are written to a folder named `output`.
+Here the slopes are plotted for each well and plotted for each group as
+individual points and as point_interval (see also ggdist package). The
+dot is the median of the datapoints, the thick bar is where 95% of the
+data is and the thin bar is where 80% of the data is.
 
 ``` r
-df_wider <- df %>%
-  pivot_wider(names_from = well, values_from = fluorescence) %>%
-  select(-time)
-
-readr::write_csv(df_wider,
-                 here::here("output",
-                            paste0(str_sub(basename(filepath_mXp), end=-5), ".csv")))
-
-readr::write_csv(slopes,
-                 here::here("output",
-                            paste0("slopes", str_sub(basename(filepath_mXp), end=-5), ".csv")))
+transformed %>%
+  filter(!group %in% c("empty")) %>%
+  slice(1, .by = well) %>%
+  ggplot(aes(x=group, y = log_slope_till_max, color = well, group = group))+
+  geom_point(size = 4)+
+  ggdist::stat_pointinterval(position = position_dodge(width = -0.4, preserve = "single"))+
+  colorspace::scale_colour_discrete_divergingx(palette = "Geyser", rev = FALSE)+
+  labs(y = "log slope (AU/1000sec)",
+       x = "") +
+  theme_bw(base_size = 18)+
+  theme(panel.border = element_blank(),
+        axis.line.y = element_line(),
+        axis.line.x = element_line())
 ```
 
-## Points of attention
+![](README_files/figure-gfm/unnamed-chunk-8-1.png)<!-- -->
 
-- Please pay attention to the location of the data files. I have the
-  data files in the `inst\extdata` folder and files are written to
-  `output`.
+## Explanation of calculations
 
-- The exported files are named according to the input file name.
+The data processing goed through several steps. It uses the
+`smooth.Pspline` from the `Psline` package. The smoothing parameters
+(spar = 0.8 and method = 2) are set. The zero-order and first_order
+splines are then processed and stored in the `transformed` tibble. Also,
+the area under the curve (AUC) is calculated and the original slope in
+the range from time_sec = 800 (s) to time_sec = 2800 (s) is calculated.
+These are not used anymore.
 
-- One function `get_range_with_key` is needed to calculate the slopes.
-  This function needs to be in the global environment, meaning that it
-  should be run first before the slopes pipe can run.
+To steps that are taken in the prcosssing are presented here:
+
+![filepath_tutorial_image](/Users/vincentdeboer/Documents/R/mitoXpress/mitoXpress_data_analysis_long.png)
+
+/Users/vincentdeboer/Documents/R/mitoXpress/mitoXpress_data_analysis_long.png
