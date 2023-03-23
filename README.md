@@ -201,6 +201,6 @@ These are not used anymore.
 
 To steps that are taken in the prcosssing are presented here:
 
-![filepath_tutorial_image](/Users/vincentdeboer/Documents/R/mitoXpress/mitoXpress_data_analysis_long.png)
+![filepath_tutorial_image](/mitoXpress_data_analysis_long.png)
 
 /Users/vincentdeboer/Documents/R/mitoXpress/mitoXpress_data_analysis_long.png
