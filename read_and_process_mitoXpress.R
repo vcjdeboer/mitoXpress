@@ -2,7 +2,6 @@
 #Thu, Mar 23rd 2023
 
 
-
 # packages ----------------------------------------------------------------
 
 library(tidyverse)
@@ -159,6 +158,21 @@ transformed <-
   get_transformed_mXp()
 
 #saveRDS(transformed, file = here::here("data", "transformed_4dpf_example.rds"))
+
+# export output -----------------------------------------------------------
+
+#export log slopes
+readr::write_delim(transformed %>%
+                     group_by(well) %>%
+                     slice(1)%>%
+                     select(well, group, time_sec, log_slope_till_max),
+                   here::here("output",
+                              paste0("output_slopes_", str_sub(data_filename, end=-4), ".txt")))
+
+#export total data
+readr::write_delim(transformed,
+                   here::here("output",
+                              paste0("output_total_", str_sub(data_filename, end=-4), ".txt")))
 
 # plot the data -----------------------------------------------------------
 
