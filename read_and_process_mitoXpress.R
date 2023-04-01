@@ -31,7 +31,7 @@ splineFN_new2 <- function(x, n_order = 0, spar = 0.8, method = 2) {
   x <- x %>% select(time_sec, fluorescence)
   colnames(x) <- c("timescale", "param")
   y <- as.vector(predict(smooth.Pspline(x$timescale, x$param,
-                                        spar = spar,
+                                        spar = spar, # spar is not used when method = 2
                                         method = method),
                          x$timescale,
                          n_order))
