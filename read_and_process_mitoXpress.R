@@ -27,17 +27,18 @@ background_drift3 <- function(x,y){
   return(auc_func)
 }
 
-splineFN_new2 <- function(x, n_order = 0, spar = 0.8, method = 2) {
+splineFN_new2 <- function(x, n_order = 0, method = 2, degrees = 10) {
   x <- x %>% select(time_sec, fluorescence)
   colnames(x) <- c("timescale", "param")
   y <- as.vector(predict(smooth.Pspline(x$timescale, x$param,
-                                        spar = spar, # spar is not used when method = 2
-                                        method = method),
+                                        method = method,
+                                        df = degrees),
                          x$timescale,
                          n_order))
   df <- tibble(timescale = x$timescale, parameter = y)
   return(df)
 }
+
 
 get_processsed_mXp <- function(data_filename, key_filename ){
 
@@ -81,18 +82,25 @@ get_processsed_mXp <- function(data_filename, key_filename ){
 
 }
 
-get_transformed_mXp <- function(df){
+get_transformed_mXp <- function(df, max_cutoff, degrees_of_freedom){
 
   transformed <- df %>%
-    #df %>%
+    #slice(5:n(), .by = well) %>% #remove first 5 rows of each well
     nest(.by = c(group, well)) %>%
     mutate(spline_0 = map(.x = data,
-                          .f = ~splineFN_new2(.x) %>%
+                          .f = ~splineFN_new2(.x,
+                                              degrees = degrees_of_freedom) %>%
                             select(zero_order = parameter))) %>%
     mutate(spline_1 = map(.x = data,
                           .f = ~splineFN_new2(.x,
+                                              degrees = degrees_of_freedom,
                                               n_order = 1) %>%
                             select(timescale, first_order = parameter))) %>%
+    mutate(spline_2 = map(.x = data,
+                          .f = ~splineFN_new2(.x,
+                                              degrees = degrees_of_freedom,
+                                              n_order = 2) %>%
+                            select(timescale, second_order = parameter))) %>%
     mutate(auc_1 = map2_dbl(.x = data,
                             .y = spline_1,
                             .f = ~(background_drift3(.x$time_sec,
@@ -104,22 +112,31 @@ get_transformed_mXp <- function(df){
            summaries = map(model, broom::glance),
            model_coef = map(model, broom::tidy)) %>%
     mutate(slope = map_dbl(model_coef, ~.x %>% pluck("estimate", 2))) %>%
-
     mutate(max_time = map_dbl(.x = spline_1,
                               .f = ~.x$timescale[which.max(.x$first_order)])) %>%
-
+    mutate(max_time_2 = map_dbl(.x = spline_2,
+                              .f = ~.x$timescale[which.min(.x$second_order)])) %>%
+    mutate(time_end = map2_dbl(.x = max_time,
+                              .y = max_time_2,
+                              .f = ~ifelse(.x>(max_cutoff-1), .x, .y))) %>%
     mutate(log_model_till_max = map2(.x = data,
-                                     .y = max_time,
+                                     .y = time_end,
                                      .f = ~.x %>%
                                        filter(time_sec %in% c(0:.y)) %>%
                                        lm(formula = log(fluorescence) ~ time_sec, data = .)),
            summaries_log = map(log_model_till_max, broom::glance),
            model_coef_log = map(log_model_till_max, broom::tidy)) %>%
     mutate(log_slope_till_max = map_dbl(model_coef_log, ~.x %>% pluck("estimate", 2) %>% '*'(1000))) %>%
-
-
-    unnest(c(data, spline_0, spline_1)) %>%
-    select(group, well, time_sec, fluorescence, zero_order, first_order, auc_1, slope, log_slope_till_max)
+    #this is done a second time because including time_scale, messess up the unnesting
+    mutate(spline_2 = map(.x = data,
+                          .f = ~splineFN_new2(.x,
+                                              n_order = 2) %>%
+                            select(second_order = parameter))) %>%
+    unnest(c(data, spline_0, spline_1, spline_2)) %>%
+    select(group, well, time_sec, fluorescence,
+           zero_order, first_order, second_order,
+           auc_1, slope, log_slope_till_max,
+           max_time, max_time_2, time_end)
 
   return(transformed)
 }
@@ -148,6 +165,8 @@ key_filename <- "key_file_exp20230314_4dpfwildtypeOCR_AUC.xlsx"
 # data_filename <- "20230315_5dpfwildtypeOCR2.txt"
 # key_filename <- "key_file_exp20230315_5dpfwildtypeOCR2_AUC.xlsx"
 
+data_filename <- "20230403_FCCP4dpf.txt"
+key_filename <- "key_file_exp20230403_FCCP4dpf.xlsx"
 
 
 
@@ -155,9 +174,18 @@ key_filename <- "key_file_exp20230314_4dpfwildtypeOCR_AUC.xlsx"
 
 transformed <-
   get_processsed_mXp(data_filename, key_filename) %>%
-  get_transformed_mXp()
+  get_transformed_mXp(max_cutoff = 8*60, degrees_of_freedom = 10)
 
 #saveRDS(transformed, file = here::here("data", "transformed_4dpf_example.rds"))
+
+
+# explore the "transformed" tibble ----------------------------------------
+
+transformed %>%
+  slice(1, .by = well) %>%
+  summarise(count = sum(is.na(log_slope_till_max)))
+
+view(transformed %>% slice(1, .by = well))
 
 # export output -----------------------------------------------------------
 
@@ -178,6 +206,7 @@ readr::write_delim(transformed,
 
 #plot raw data with fit smoothed line
 transformed %>%
+  #filter(well %in% c("C02", "B02", "B03", "C03")) %>%
   ggplot(aes(x=time_sec, y = (fluorescence), color = well, group = group))+
   geom_point()+
   geom_line(aes(y = (zero_order), color = well, group = well),
@@ -201,6 +230,19 @@ transformed %>%
                             show.legend = FALSE)+
   colorspace::scale_colour_discrete_divergingx(palette = "Geyser", rev = FALSE)+
   labs(y = "change in fluorescence (1st der.)",
+       x = "time (sec)") +
+  facet_wrap(~group, scales = "fixed")+
+  theme_bw(base_size = 24)
+
+#plot second order data
+transformed %>%
+  ggplot(aes(x=time_sec, y = second_order, color = well, group = group))+
+  geom_point()+
+  ggrepel::geom_label_repel(data = . %>% filter(time_sec == max(time_sec)),
+                            aes(label = well),
+                            show.legend = FALSE)+
+  colorspace::scale_colour_discrete_divergingx(palette = "Geyser", rev = FALSE)+
+  labs(y = "change in dAU/dt (2nd der.)",
        x = "time (sec)") +
   facet_wrap(~group, scales = "fixed")+
   theme_bw(base_size = 24)
@@ -238,12 +280,6 @@ transformed %>%
         axis.line.x = element_line())
 
 
-
-# issues (todo) -----------------------------------------------------------
-
-# when maximum first order slope of raw data is in the beginning (t=1 for example,
-# the range is to small to get a good slope from the log(fluorescence)
-# in the test_exp6 datafile this is the case for the GOx 1U especially
 
 
 
