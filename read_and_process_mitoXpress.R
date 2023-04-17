@@ -84,6 +84,10 @@ get_processsed_mXp <- function(data_filename, key_filename ){
 
 get_transformed_mXp <- function(df, max_cutoff, degrees_of_freedom){
 
+  # df <- df_test
+  # max_cutoff = 8*60
+  # degrees_of_freedom = 10
+
   transformed <- df %>%
     #slice(5:n(), .by = well) %>% #remove first 5 rows of each well
     nest(.by = c(group, well)) %>%
@@ -176,6 +180,8 @@ transformed <-
   get_processsed_mXp(data_filename, key_filename) %>%
   get_transformed_mXp(max_cutoff = 8*60, degrees_of_freedom = 10)
 
+
+df_test <- get_processsed_mXp(data_filename, key_filename)
 #saveRDS(transformed, file = here::here("data", "transformed_4dpf_example.rds"))
 
 
